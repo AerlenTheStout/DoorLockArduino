@@ -1,30 +1,8 @@
+
 #ifndef ARDUINO_DOORLOCK_H
 #define ARDUINO_DOORLOCK_H
 
-#include <Arduino.h> // Required for Arduino specific functions like pinMode, digitalWrite, etc.
-#include <Servo.h>   // Required for the Servo library
-
-// --- Global Constants for Default Pin Assignments and Code ---
-// These make it easy for campers to see what pins are used by default
-// and to easily change them if they want to.
-const int DOORLOCK_BUTTON1_PIN = 4;
-const int DOORLOCK_BUTTON2_PIN = 3;
-const int DOORLOCK_BUTTON3_PIN = 2;
-const int DOORLOCK_LOCK_BUTTON_PIN = 5;
-const int DOORLOCK_RED_LED_PIN = 8;
-const int DOORLOCK_GREEN_LED_PIN = 7;
-const int DOORLOCK_SERVO_PIN = 9;
-const int DOORLOCK_BUZZER_PIN = 12;
-
-// Default secret code for the door lock (e.g., 1-2-3)
-const int DOORLOCK_DEFAULT_CODE[] = {1, 2, 3};
-const int DOORLOCK_DEFAULT_CODE_LENGTH = 3;
-
-// --- Internal Implementation Class ---
-// This class holds all the actual state and logic for the door lock.
-// It's given a leading underscore to indicate it's for internal library use,
-// not something users should directly create instances of.
-class _DoorLockImpl
+class DoorLock  
 {
 private:
     int* _correctCode;   // Dynamically allocated array for the secret code
