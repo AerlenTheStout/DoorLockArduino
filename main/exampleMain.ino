@@ -12,8 +12,8 @@ void unlock() {
   locked = false;
   open();
   greenLEDToggle(true);
-  buzzerOn(1000);
-  delay(2000);
+  buzzerOn(2000);
+  delay(500);
   buzzerOff();
   greenLEDToggle(false);
   resetAttempt();
