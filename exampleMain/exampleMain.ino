@@ -1,5 +1,5 @@
 #include <Servo.h>
-#include "DoorLock.h"
+#include "Library/DoorLock.h"
 using namespace DoorLock;
 // Dont touch anything above this comment, or the program will not work
 
