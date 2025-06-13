@@ -43,8 +43,8 @@ _DoorLockImpl::_DoorLockImpl(int* correctCode, int codeLength, bool Locked, int 
 
     // Initialize debounce states to HIGH (assuming INPUT_PULLUP and buttons pull LOW when pressed)
     for (int i = 0; i < 4; i++) {
-        _lastReading[i] = HIGH;
-        _stableState[i] = HIGH;
+        _lastReading[i] = LOW;
+        _stableState[i] = LOW;
     }
     _inputIndex = 0; // Ensure input index is reset
 }
@@ -62,7 +62,7 @@ _DoorLockImpl::~_DoorLockImpl()
 void _DoorLockImpl::start()
 {
     // Start serial communication (optional, but good for debugging)
-    Serial.begin(9600);
+    Serial.begin(115200);
     Serial.println("DoorLock library initialized.");
 
     // Set pin modes for buttons (original had INPUT, generally INPUT_PULLUP is safer for physical buttons)
@@ -207,13 +207,8 @@ void _DoorLockImpl::button1Pressed()
             Serial.print(",");
         }
         Serial.println();
-    } else {
-        Serial.println("Input index out of bounds, resetting attempt.");
-        resetAttempt(); // Reset if too many digits entered
-        // The original logic didn't add the current digit after reset,
-        // so it might be lost. Consider if you want to add it here.
     }
-    delay(500); // Original delay for button press
+    delay(200); // Original delay for button press
 }
 
 void _DoorLockImpl::button2Pressed()
@@ -227,11 +222,8 @@ void _DoorLockImpl::button2Pressed()
             Serial.print(",");
         }
         Serial.println();
-    } else {
-        Serial.println("Input index out of bounds, resetting attempt.");
-        resetAttempt();
     }
-    delay(500); // Original delay
+    delay(200); // Original delay
 }
 
 void _DoorLockImpl::button3Pressed()
@@ -245,32 +237,39 @@ void _DoorLockImpl::button3Pressed()
             Serial.print(",");
         }
         Serial.println();
-    } else {
-        Serial.println("Input index out of bounds, resetting attempt.");
-        resetAttempt();
     }
-    delay(500); // Original delay
+    delay(200); // Original delay
 }
 
 // --- Button Status Checks (Original Names) ---
+// This uses the scanButtons for debouncing before returning the state
 bool _DoorLockImpl::isButton1Pressed()
 {
-    return digitalRead(_button1); // Ensure the button is read
+// Return the "just pressed" flag and then reset it
+    bool pressed = _buttonJustPressedFlags[0];
+    _buttonJustPressedFlags[0] = false; // Consume the press
+    return pressed;
 }
 
 bool _DoorLockImpl::isButton2Pressed()
 {
-    return digitalRead(_button2); // Ensure the button is read
+    bool pressed = _buttonJustPressedFlags[1];
+    _buttonJustPressedFlags[1] = false; // Consume the press
+    return pressed;
 }
 
 bool _DoorLockImpl::isButton3Pressed()
 {
-    return digitalRead(_button3); // Ensure the button is read
+    bool pressed = _buttonJustPressedFlags[2];
+    _buttonJustPressedFlags[2] = false; // Consume the press
+    return pressed;
 }
 
 bool _DoorLockImpl::isLockButtonPressed()
 {
-    return digitalRead(_lockButton); // Ensure the button is read
+    bool pressed = _buttonJustPressedFlags[3];
+    _buttonJustPressedFlags[3] = false; // Consume the press
+    return pressed;
 }
 
 // --- LED Control (Original Names) ---
@@ -295,6 +294,36 @@ void _DoorLockImpl::buzzerOff()
     noTone(_buzzerPin);
 }
 
+// --- Internal Debouncing Logic (Original Name) ---
+void _DoorLockImpl::scanButtons()
+{
+    int buttonPins[] = {_button1, _button2, _button3, _lockButton};
+    const unsigned long DEBOUNCE_DELAY = 50; // milliseconds
+
+    for (uint8_t i = 0; i < 4; i++) {
+        int currentReading = digitalRead(buttonPins[i]);
+
+        // If the reading has changed from the last time
+        if (currentReading != _lastReading[i]) {
+            _lastDebounceTs[i] = millis(); // Reset the debounce timer for this button
+        }
+
+        // If the current time is past the debounce delay since the last change
+        if ((millis() - _lastDebounceTs[i]) > DEBOUNCE_DELAY) {
+            // If the stable state is different from the current reading, it means a debounced change has occurred
+            if (currentReading != _stableState[i]) {
+                _stableState[i] = currentReading; // Update the stable state
+
+                // Check for a transition from NOT pressed (HIGH) to PRESSED (LOW)
+                // This indicates a "just pressed" event.
+                if (_stableState[i] == LOW) {
+                    _buttonJustPressedFlags[i] = true; // Set the flag for one-shot detection
+                }
+            }
+        }
+        _lastReading[i] = currentReading; // Save the current raw reading for the next loop
+    }
+}
 
 
 // --- Implementation of Global Functions in DoorLock Namespace ---
@@ -418,5 +447,9 @@ namespace DoorLock {
     int getRedLED() { return _theDoorLockInstance.getRedLED(); }
     int getServoPin() { return _theDoorLockInstance.getServoPin(); }
     int getBuzzerPin() { return _theDoorLockInstance.getBuzzerPin(); }
+
+    void scanButtons() {
+        _theDoorLockInstance.scanButtons();
+    }
 
 } // end namespace DoorLock

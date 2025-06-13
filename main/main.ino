@@ -39,6 +39,7 @@ void incorrect() {
 
 
 void loop() {
+  scanButtons(); // Update button states
   // put your main code here, to run repeatedly:
   if(isButton1Pressed()) {
     button1Pressed();

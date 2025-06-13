@@ -44,11 +44,12 @@ private:
     // Variables for button debouncing (original names: lastReading, stableState)
     int* _lastReading; // Array to store last reading for each button
     int* _stableState; // Array to store stable state for each button
+	unsigned long _lastDebounceTs[4] = {0, 0, 0, 0}; // Timestamps for debouncing
+	bool _buttonJustPressedFlags[4] = {false, false, false, false}; // Flags for one-shot button press detection
 
     Servo _servo; // Servo object (original name: servo)
 
     // Original private helper method
-    void scanButtons();
 
     // Public member (original: int* attempt;)
     // Keeping this private within _DoorLockImpl for better encapsulation
@@ -63,7 +64,7 @@ public: // Changed constructors to PUBLIC access
 
 	_DoorLockImpl(const int* correctCode, int codeLength, bool Locked, int button1, int button2, int button3, int lockButton, int greenLED, int redLED, int servoPin, int buzzerPin)
 		: _DoorLockImpl(const_cast<int*>(correctCode), codeLength, Locked, button1, button2, button3, lockButton, greenLED, redLED, servoPin, buzzerPin) {};
-		
+
     _DoorLockImpl(); // Default constructor, now public
 
     // Public destructor to properly clean up dynamically allocated memory
@@ -73,6 +74,7 @@ public: // Changed constructors to PUBLIC access
 
     // Initializes all hardware pins and sets initial lock state (original: start)
     void start();
+    void scanButtons();
 
     // Lock Actions (original names)
     void DoorUnlock();
@@ -137,6 +139,8 @@ namespace DoorLock {
                int greenLED, int redLED, int servoPin, int buzzerPin); // Custom pins, default code
     void start(int* correctCode, int codeLength, int button1, int button2, int button3,
                int lockButton, int greenLED, int redLED, int servoPin, int buzzerPin); // All custom
+
+	void scanButtons();
 
     // Lock Actions (original names)
     void DoorUnlock();
