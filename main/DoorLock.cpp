@@ -20,7 +20,7 @@ _DoorLockImpl::_DoorLockImpl()
 
 // Private Full Constructor: Initializes all member variables and dynamically allocated arrays.
 _DoorLockImpl::_DoorLockImpl(int* correctCode, int codeLength, bool Locked, int button1, int button2, int button3, int lockButton, int greenLED, int redLED, int servoPin, int buzzerPin)
-    : _codeLength(codeLength), _button1(button1), _button2(button2), _button3(button3), _lockButton(lockButton), _greenLED(greenLED), _redLED(redLED), _servoPin(servoPin), _buzzerPin(buzzerPin),_locked(Locked) // Initialize locked state
+    : _codeLength(codeLength), _button1(button1), _button2(button2), _button3(button3), _lockButton(lockButton), _greenLED(greenLED), _redLED(redLED), _servoPin(servoPin), _buzzerPin(buzzerPin), locked(Locked) // Initialize locked state
 {
     // Allocate memory for the correct secret code and copy it.
     // WARNING: This assumes `correctCode` is dynamically allocated by the caller or exists globally.
@@ -92,7 +92,7 @@ void _DoorLockImpl::start()
 // --- Lock Control Functions (Original Names) ---
 void _DoorLockImpl::DoorUnlock()
 {
-    _locked = false;
+    locked = false;
     _servo.write(180); // Adjust servo position for unlocked state (e.g., 180 degrees)
     digitalWrite(_greenLED, HIGH);
     delay(1000); // Original delay for green LED
@@ -105,7 +105,7 @@ void _DoorLockImpl::DoorUnlock()
 // `void_lock` is just an internal name. The namespace function `DoorLock::lock()` will call this.
 void _DoorLockImpl::DoorLock()
 {
-    _locked = true;
+    locked = true;
     _servo.write(0); // Adjust servo position for locked state (e.g., 0 degrees)
     digitalWrite(_redLED, HIGH);
     delay(1000); // Original delay for red LED
@@ -253,29 +253,24 @@ void _DoorLockImpl::button3Pressed()
 }
 
 // --- Button Status Checks (Original Names) ---
-// This uses the scanButtons for debouncing before returning the state
 bool _DoorLockImpl::isButton1Pressed()
 {
-    scanButtons(); // Update debounced states
-    return _stableState[0] == LOW; // Assuming pull-up, so LOW is pressed
+    return digitalRead(_button1); // Ensure the button is read
 }
 
 bool _DoorLockImpl::isButton2Pressed()
 {
-    scanButtons();
-    return _stableState[1] == LOW;
+    return digitalRead(_button2); // Ensure the button is read
 }
 
 bool _DoorLockImpl::isButton3Pressed()
 {
-    scanButtons();
-    return _stableState[2] == LOW;
+    return digitalRead(_button3); // Ensure the button is read
 }
 
 bool _DoorLockImpl::isLockButtonPressed()
 {
-    scanButtons();
-    return _stableState[3] == LOW;
+    return digitalRead(_lockButton); // Ensure the button is read
 }
 
 // --- LED Control (Original Names) ---
@@ -300,30 +295,6 @@ void _DoorLockImpl::buzzerOff()
     noTone(_buzzerPin);
 }
 
-// --- Internal Debouncing Logic (Original Name) ---
-void _DoorLockImpl::scanButtons()
-{
-    int buttonPins[] = {_button1, _button2, _button3, _lockButton};
-    // Debounce logic from your original (or a common non-blocking pattern if preferred)
-    // For simplicity with original structure, we'll re-implement the basic debounce.
-    const unsigned long DEBOUNCE_DELAY = 50; // milliseconds
-
-    for (int i = 0; i < 4; i++) {
-        int reading = digitalRead(buttonPins[i]);
-
-        // If the reading has changed from the last time
-        if (reading != _lastReading[i]) {
-            // Start a timer (or, for simplicity in this synchronous loop, just re-check after delay)
-            // A truly non-blocking debounce would track millis() here.
-            // For this direct copy, we'll mimic the original intent with a small delay.
-            delay(5); // Small delay to let signal stabilize
-            if (reading == digitalRead(buttonPins[i])) { // Check again after delay
-                _stableState[i] = reading;
-            }
-        }
-        _lastReading[i] = reading; // Save the current reading for the next loop
-    }
-}
 
 
 // --- Implementation of Global Functions in DoorLock Namespace ---
@@ -331,6 +302,7 @@ void _DoorLockImpl::scanButtons()
 // Each function simply forwards the call to the single '_theDoorLockInstance'.
 
 namespace DoorLock {
+    bool locked = _theDoorLockInstance.locked;
     // Overloaded start() functions for various initialization options
     void start() {
         _theDoorLockInstance.start();
@@ -364,10 +336,10 @@ namespace DoorLock {
     }
 
     // Lock Actions
-    void unlock() {
+    void DoorUnlock() {
         _theDoorLockInstance.DoorUnlock();
     }
-    void lock() {
+    void DoorLock() {
         _theDoorLockInstance.DoorLock(); // Calls the internally renamed function
     }
     void open() {
@@ -378,7 +350,7 @@ namespace DoorLock {
     }
 
     // Code Entry and Verification
-    void Incorrect() {
+    void DoorIncorrect() {
         _theDoorLockInstance.DoorIncorrect();
     }
     void resetAttempt() {
