@@ -9,31 +9,33 @@ void setup() {
 
 void unlock() {
   locked = false;
-  open();
-  greenLEDToggle(true);
-  buzzerOn(2000);
-  delay(500);
-  buzzerOff();
-  greenLEDToggle(false);
-  resetAttempt();
+  open(); // This turns the servo to open
+  greenLEDToggle(true); // Turn on the green LED
+  buzzerOn(2000); // Turn on the buzzer at 2000Hz
+  delay(500); // Wait for 500ms
+  buzzerOff(); // Turn off the buzzer
+  greenLEDToggle(false); // Turn off the green LED
+  resetAttempt(); // Reset the attempt array that holds the previous entered code.
 }
+
 void lock() {
   locked = true;
-  close();
-  redLEDToggle(true);
-  buzzerOn(500);
-  delay(2000);
-  buzzerOff();
-  redLEDToggle(false);
-  resetAttempt();
+  close(); // This turns the servo to close
+  redLEDToggle(true); // Turn on the red LED
+  buzzerOn(500); // Turn on the buzzer at 500Hz
+  delay(2000); // Wait for 2000ms
+  buzzerOff(); // Turn off the buzzer
+  redLEDToggle(false); // Turn off the red LED
+  resetAttempt(); // Reset the attempt array that holds the previous entered code.
 }
+
 void incorrect() {
-  redLEDToggle(true);
-  buzzerOn(2000);
-  delay(1000);
-  buzzerOff();
-  redLEDToggle(false);
-  resetAttempt();
+  redLEDToggle(true); // Turn on the red LED
+  buzzerOn(2000); // Turn on the buzzer at 2000Hz
+  delay(1000); // Wait for 1000ms
+  buzzerOff(); // Turn off the buzzer
+  redLEDToggle(false); // Turn off the red LED
+  resetAttempt(); // Reset the attempt array that holds the previous entered code.
 }
 
 
