@@ -1,8 +1,7 @@
 #include <Servo.h>
 #include "DoorLock.h"
 using namespace DoorLock;
-// #define and &&
-// #define or ||
+// Dont touch anything above this comment, or the program will not work
 
 void setup() {
   start();
@@ -40,19 +39,25 @@ void incorrect() {
 
 void loop() {
   scanButtons(); // Update button states
-  // put your main code here, to run repeatedly:
+
+  // Check if button 1 is pressed, if it is register that button 1 was pressed
   if(isButton1Pressed()) {
     button1Pressed();
   }
 
+  // Check if button 2 is pressed, if it is register that button 2 was pressed
   if(isButton2Pressed()) {
     button2Pressed();
   }
 
+  // Check if button 3 is pressed, if it is register that button 3 was pressed
   if(isButton3Pressed()) {
     button3Pressed();
   }
 
+  // Check if the lock button is pressed, if it is, check if the door is locked or unlocked
+  // if the door is unlocked, Lock it.
+  // if the door is locked, check if the attempt is correct, if it is, unlock the door, otherwise do the incorrect action.
   if(isLockButtonPressed()) {
     if (!locked) {
       lock();
@@ -61,6 +66,5 @@ void loop() {
     } else if(locked) {
       incorrect();
     }
-    delay(250);
   }
 }
