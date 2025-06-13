@@ -2,7 +2,7 @@
 #include <Arduino.h>        // Include Arduino core functions
 
 // --- Global Single Instance of the Internal Class ---
-// This is the one and only DoorLockImpl object that will be created.
+// This is the one and only _DoorLockImpl object that will be created.
 // It's declared here, in the .cpp file, so it's not directly accessible
 // from user sketches, enforcing the single instance pattern.
 _DoorLockImpl _theDoorLockInstance; // Default constructor is called automatically
@@ -11,7 +11,7 @@ _DoorLockImpl _theDoorLockInstance; // Default constructor is called automatical
 
 // Private Default Constructor: Delegates to the full constructor with default values.
 _DoorLockImpl::_DoorLockImpl()
-    : _DoorLockImpl(DOORLOCK_DEFAULT_CODE, DOORLOCK_DEFAULT_CODE_LENGTH,
+    : _DoorLockImpl(DOORLOCK_DEFAULT_CODE, DOORLOCK_DEFAULT_CODE_LENGTH, true, // Default to locked
                     DOORLOCK_BUTTON1_PIN, DOORLOCK_BUTTON2_PIN, DOORLOCK_BUTTON3_PIN, DOORLOCK_LOCK_BUTTON_PIN,
                     DOORLOCK_GREEN_LED_PIN, DOORLOCK_RED_LED_PIN, DOORLOCK_SERVO_PIN, DOORLOCK_BUZZER_PIN)
 {
@@ -19,36 +19,34 @@ _DoorLockImpl::_DoorLockImpl()
 }
 
 // Private Full Constructor: Initializes all member variables and dynamically allocated arrays.
-_DoorLockImpl::_DoorLockImpl(const int* code, int codeLength,
-                           int button1, int button2, int button3, int lockButton,
-                           int greenLED, int redLED, int servoPin, int buzzerPin)
-    : _codeLength(codeLength),
-      _button1Pin(button1), _button2Pin(button2), _button3Pin(button3), _lockButtonPin(lockButton),
-      _greenLEDPin(greenLED), _redLEDPin(redLED), _servoPin(servoPin), _buzzerPin(buzzerPin)
+_DoorLockImpl::_DoorLockImpl(int* correctCode, int codeLength, bool Locked, int button1, int button2, int button3, int lockButton, int greenLED, int redLED, int servoPin, int buzzerPin)
+    : _codeLength(codeLength), _button1(button1), _button2(button2), _button3(button3), _lockButton(lockButton), _greenLED(greenLED), _redLED(redLED), _servoPin(servoPin), _buzzerPin(buzzerPin),_locked(Locked) // Initialize locked state
 {
     // Allocate memory for the correct secret code and copy it.
+    // WARNING: This assumes `correctCode` is dynamically allocated by the caller or exists globally.
+    // If `correctCode` is a local array in the caller, it will go out of scope and become a dangling pointer.
+    // For safety, you might want to copy the contents, not just the pointer.
     _correctCode = new int[_codeLength];
-    for (int i = 0; i < _codeLength; ++i) {
-        _correctCode[i] = code[i];
+    for (int i = 0; i < _codeLength; i++) {
+        _correctCode[i] = correctCode[i];
     }
 
     // Allocate memory for the current attempt and initialize to 0.
     _attempt = new int[_codeLength];
-    for (int i = 0; i < _codeLength; ++i) {
+    for (int i = 0; i < _codeLength; i++) {
         _attempt[i] = 0;
     }
 
     // Allocate memory for button debouncing states (4 buttons: 1, 2, 3, Lock)
-    _lastButtonReading = new int[4];
-    _stableButtonState = new int[4];
+    _lastReading = new int[4];
+    _stableState = new int[4];
 
     // Initialize debounce states to HIGH (assuming INPUT_PULLUP and buttons pull LOW when pressed)
-    for (int i = 0; i < 4; ++i) {
-        _lastButtonReading[i] = HIGH;
-        _stableButtonState[i] = HIGH;
+    for (int i = 0; i < 4; i++) {
+        _lastReading[i] = HIGH;
+        _stableState[i] = HIGH;
     }
     _inputIndex = 0; // Ensure input index is reset
-    _isLocked = true; // Default to locked state
 }
 
 // Destructor: Frees dynamically allocated memory to prevent memory leaks.
@@ -56,220 +54,275 @@ _DoorLockImpl::~_DoorLockImpl()
 {
     delete[] _correctCode;
     delete[] _attempt;
-    delete[] _lastButtonReading;
-    delete[] _stableButtonState;
+    delete[] _lastReading;
+    delete[] _stableState;
 }
 
-// Initializes hardware pins and sets initial state.
-void _DoorLockImpl::begin()
+// Original `start()` method: Initializes hardware pins and sets initial state.
+void _DoorLockImpl::start()
 {
-    // Set pin modes for buttons (with internal pull-up resistors for simplicity)
-    pinMode(_button1Pin, INPUT_PULLUP);
-    pinMode(_button2Pin, INPUT_PULLUP);
-    pinMode(_button3Pin, INPUT_PULLUP);
-    pinMode(_lockButtonPin, INPUT_PULLUP);
+    // Start serial communication (optional, but good for debugging)
+    Serial.begin(9600);
+    Serial.println("DoorLock library initialized.");
+
+    // Set pin modes for buttons (original had INPUT, generally INPUT_PULLUP is safer for physical buttons)
+    // If you explicitly use external pull-down resistors, keep INPUT.
+    pinMode(_button1, INPUT_PULLUP);
+    pinMode(_button2, INPUT_PULLUP);
+    pinMode(_button3, INPUT_PULLUP);
+    pinMode(_lockButton, INPUT_PULLUP);
 
     // Set pin modes for LEDs (output)
-    pinMode(_redLEDPin, OUTPUT);
-    pinMode(_greenLEDPin, OUTPUT);
+    pinMode(_redLED, OUTPUT);
+    pinMode(_greenLED, OUTPUT);
     // Buzzer pin as output for tone() function
     pinMode(_buzzerPin, OUTPUT);
 
     // Attach the servo to its pin
-    _doorServo.attach(_servoPin);
+    _servo.attach(_servoPin);
 
-    // Set initial states
-    turnRedLEDOff();
-    turnGreenLEDOff();
-    stopSound();
-    lockDoor(); // Ensure the door is locked at setup
-    resetCodeEntry(); // Clear any previous attempt
-    Serial.begin(9600); // Start serial communication
-    Serial.println("DoorLock library initialized.");
+    // Set initial states (consistent with original logic where lock() is called separately)
+    digitalWrite(_redLED, LOW);
+    digitalWrite(_greenLED, LOW);
+    noTone(_buzzerPin);
+    _servo.write(0); // Ensure servo is at initial position (locked)
+    resetAttempt(); // Clear any previous attempt
 }
 
-// --- Lock Control Functions ---
-void _DoorLockImpl::unlockDoor()
+// --- Lock Control Functions (Original Names) ---
+void _DoorLockImpl::DoorUnlock()
 {
-    Serial.println("Unlocking door...");
-    _doorServo.write(180); // Adjust servo position for unlocked state (e.g., 180 degrees)
-    _isLocked = false;
-    turnGreenLEDOn();
-    turnRedLEDOff();
+    _locked = false;
+    _servo.write(180); // Adjust servo position for unlocked state (e.g., 180 degrees)
+    digitalWrite(_greenLED, HIGH);
+    delay(1000); // Original delay for green LED
+    digitalWrite(_greenLED, LOW);
+    resetAttempt(); // Original behavior
+    Serial.println("Door unlocked.");
 }
 
-void _DoorLockImpl::lockDoor()
+// Renamed due to `lock` being a reserved word or common function name in global scope
+// `void_lock` is just an internal name. The namespace function `DoorLock::lock()` will call this.
+void _DoorLockImpl::DoorLock()
 {
-    Serial.println("Locking door...");
-    _doorServo.write(0); // Adjust servo position for locked state (e.g., 0 degrees)
-    _isLocked = true;
-    turnGreenLEDOff();
-    turnRedLEDOn();
+    _locked = true;
+    _servo.write(0); // Adjust servo position for locked state (e.g., 0 degrees)
+    digitalWrite(_redLED, HIGH);
+    delay(1000); // Original delay for red LED
+    digitalWrite(_redLED, LOW);
+    resetAttempt(); // Original behavior
+    Serial.println("Door locked.");
 }
 
-bool _DoorLockImpl::isDoorLocked()
+void _DoorLockImpl::open() // Original `open()`
 {
-    return _isLocked;
+    _servo.write(180); // Corresponds to unlock
 }
 
-// --- Code Entry Functions ---
-void _DoorLockImpl::enterDigit(int digit)
+void _DoorLockImpl::close() // Original `close()`
 {
-    if (_inputIndex < _codeLength) {
-        _attempt[_inputIndex++] = digit;
-        Serial.print("Input: ");
-        for (int i = 0; i < _inputIndex; ++i) {
-            Serial.print(_attempt[i]);
-        }
-        Serial.println();
-    } else {
-        Serial.println("Code attempt buffer full. Resetting.");
-        resetCodeEntry(); // Automatically reset if too many digits entered
-        _attempt[_inputIndex++] = digit; // Add the current digit to the new attempt
-    }
+    _servo.write(0); // Corresponds to lock
 }
 
-void _DoorLockImpl::resetCodeEntry()
+// --- Code Entry and Verification Functions (Original Names) ---
+void _DoorLockImpl::DoorIncorrect()
 {
-    _inputIndex = 0;
-    for (int i = 0; i < _codeLength; ++i) {
+    digitalWrite(_redLED, HIGH); // Original behavior
+    delay(1000);
+    digitalWrite(_redLED, LOW);
+    resetAttempt(); // Original behavior
+    Serial.println("Incorrect code.");
+}
+
+void _DoorLockImpl::resetAttempt()
+{
+    for (int i = 0; i < _codeLength; i++) {
         _attempt[i] = 0; // Clear the attempt array
     }
-    Serial.println("Code attempt reset.");
+    _inputIndex = 0;
+    Serial.println("Attempt reset.");
 }
 
-bool _DoorLockImpl::checkEnteredCode()
+bool _DoorLockImpl::isAttemptCorrect()
 {
-    if (_inputIndex != _codeLength) {
-        Serial.println("Incorrect: Code length mismatch.");
-        return false; // Not enough digits entered
+    if (_inputIndex != _codeLength) { // Check if the correct number of digits were entered
+        Serial.println("Attempt length mismatch.");
+        return false;
     }
-    for (int i = 0; i < _codeLength; ++i) {
+    for (int i = 0; i < _codeLength; i++) {
         if (_attempt[i] != _correctCode[i]) {
-            Serial.println("Incorrect: Mismatched digit.");
             return false;
         }
     }
-    Serial.println("Code correct!");
     return true;
 }
 
-// --- LED Control Functions ---
-void _DoorLockImpl::turnRedLEDOn()
+// --- Configuration Setters (Original Names) ---
+void _DoorLockImpl::setCorrectCode(int* code)
 {
-    digitalWrite(_redLEDPin, HIGH);
+    // Copies the contents of the new code array.
+    // This is safer than just assigning the pointer.
+    for (int i = 0; i < _codeLength; i++) {
+        _correctCode[i] = code[i];
+    }
+    Serial.println("Secret code updated.");
 }
 
-void _DoorLockImpl::turnRedLEDOff()
+void _DoorLockImpl::setPins(int* pins)
 {
-    digitalWrite(_redLEDPin, LOW);
+    // Assumes `pins` array has a specific order:
+    // {button1, button2, button3, lockButton, greenLED, redLED, servoPin, buzzerPin}
+    if (pins) { // Basic check to ensure pins is not null
+        _button1 = pins[0];
+        _button2 = pins[1];
+        _button3 = pins[2];
+        _lockButton = pins[3];
+        _greenLED = pins[4];
+        _redLED = pins[5];
+        _servoPin = pins[6];
+        _buzzerPin = pins[7];
+
+        // Re-initialize pin modes for the newly assigned pins
+        pinMode(_button1, INPUT_PULLUP); // Using PULLUP for safety
+        pinMode(_button2, INPUT_PULLUP);
+        pinMode(_button3, INPUT_PULLUP);
+        pinMode(_lockButton, INPUT_PULLUP);
+        pinMode(_redLED, OUTPUT);
+        pinMode(_greenLED, OUTPUT);
+        pinMode(_buzzerPin, OUTPUT);
+        _servo.attach(_servoPin); // Re-attach servo to the new pin
+        Serial.println("Pin assignments updated.");
+    }
 }
 
-void _DoorLockImpl::turnGreenLEDOn()
+// --- Button Press Handlers (Original Names) ---
+void _DoorLockImpl::button1Pressed()
 {
-    digitalWrite(_greenLEDPin, HIGH);
+    Serial.println("button 1 pressed");
+    if (_inputIndex < _codeLength) {
+        _attempt[_inputIndex] = 1;
+        _inputIndex++;
+        for (int i = 0; i < _codeLength; i++) {
+            Serial.print(_attempt[i]);
+            Serial.print(",");
+        }
+        Serial.println();
+    } else {
+        Serial.println("Input index out of bounds, resetting attempt.");
+        resetAttempt(); // Reset if too many digits entered
+        // The original logic didn't add the current digit after reset,
+        // so it might be lost. Consider if you want to add it here.
+    }
+    delay(500); // Original delay for button press
 }
 
-void _DoorLockImpl::turnGreenLEDOff()
+void _DoorLockImpl::button2Pressed()
 {
-    digitalWrite(_greenLEDPin, LOW);
+    Serial.println("button 2 pressed");
+    if (_inputIndex < _codeLength) {
+        _attempt[_inputIndex] = 2;
+        _inputIndex++;
+        for (int i = 0; i < _codeLength; i++) {
+            Serial.print(_attempt[i]);
+            Serial.print(",");
+        }
+        Serial.println();
+    } else {
+        Serial.println("Input index out of bounds, resetting attempt.");
+        resetAttempt();
+    }
+    delay(500); // Original delay
 }
 
-// --- Sound Feedback Functions ---
-void _DoorLockImpl::playSuccessSound()
+void _DoorLockImpl::button3Pressed()
 {
-    tone(_buzzerPin, 1500, 100); // High pitch, short duration
+    Serial.println("button 3 pressed");
+    if (_inputIndex < _codeLength) {
+        _attempt[_inputIndex] = 3;
+        _inputIndex++;
+        for (int i = 0; i < _codeLength; i++) {
+            Serial.print(_attempt[i]);
+            Serial.print(",");
+        }
+        Serial.println();
+    } else {
+        Serial.println("Input index out of bounds, resetting attempt.");
+        resetAttempt();
+    }
+    delay(500); // Original delay
 }
 
-void _DoorLockImpl::playIncorrectSound()
+// --- Button Status Checks (Original Names) ---
+// This uses the scanButtons for debouncing before returning the state
+bool _DoorLockImpl::isButton1Pressed()
 {
-    tone(_buzzerPin, 500, 500); // Low pitch, longer duration
+    scanButtons(); // Update debounced states
+    return _stableState[0] == LOW; // Assuming pull-up, so LOW is pressed
 }
 
-void _DoorLockImpl::stopSound()
+bool _DoorLockImpl::isButton2Pressed()
+{
+    scanButtons();
+    return _stableState[1] == LOW;
+}
+
+bool _DoorLockImpl::isButton3Pressed()
+{
+    scanButtons();
+    return _stableState[2] == LOW;
+}
+
+bool _DoorLockImpl::isLockButtonPressed()
+{
+    scanButtons();
+    return _stableState[3] == LOW;
+}
+
+// --- LED Control (Original Names) ---
+void _DoorLockImpl::redLEDToggle(bool state)
+{
+    digitalWrite(_redLED, state ? HIGH : LOW);
+}
+
+void _DoorLockImpl::greenLEDToggle(bool state)
+{
+    digitalWrite(_greenLED, state ? HIGH : LOW);
+}
+
+// --- Buzzer Control (Original Names) ---
+void _DoorLockImpl::buzzerOn(int hz)
+{
+    tone(_buzzerPin, hz);
+}
+
+void _DoorLockImpl::buzzerOff()
 {
     noTone(_buzzerPin);
 }
 
-// --- Internal Button Debouncing Logic ---
-void _DoorLockImpl::_updateButtonStates()
+// --- Internal Debouncing Logic (Original Name) ---
+void _DoorLockImpl::scanButtons()
 {
-    // Map button indices to their actual pin numbers
-    int buttonPins[] = {_button1Pin, _button2Pin, _button3Pin, _lockButtonPin};
-    const unsigned long DEBOUNCE_DELAY = 50; // Milliseconds
+    int buttonPins[] = {_button1, _button2, _button3, _lockButton};
+    // Debounce logic from your original (or a common non-blocking pattern if preferred)
+    // For simplicity with original structure, we'll re-implement the basic debounce.
+    const unsigned long DEBOUNCE_DELAY = 50; // milliseconds
 
-    for (int i = 0; i < 4; ++i) {
-        int currentReading = digitalRead(buttonPins[i]);
+    for (int i = 0; i < 4; i++) {
+        int reading = digitalRead(buttonPins[i]);
 
-        // If the reading has changed, reset the last reading time for this button
-        if (currentReading != _lastButtonReading[i]) {
-            // No explicit timestamp needed if we use a simple delay.
-            // For a non-blocking debounce, you'd use millis() and a timestamp array.
-            // For this simple example, we'll use a blocking delay for simplicity,
-            // but in a real-time system, a non-blocking debounce is preferred.
+        // If the reading has changed from the last time
+        if (reading != _lastReading[i]) {
+            // Start a timer (or, for simplicity in this synchronous loop, just re-check after delay)
+            // A truly non-blocking debounce would track millis() here.
+            // For this direct copy, we'll mimic the original intent with a small delay.
+            delay(5); // Small delay to let signal stabilize
+            if (reading == digitalRead(buttonPins[i])) { // Check again after delay
+                _stableState[i] = reading;
+            }
         }
-
-        // If the reading has been stable for the debounce delay, update the stable state
-        // This simple delay helps filter out noise.
-        delay(5); // Small delay to allow the signal to stabilize a bit
-        if (currentReading == digitalRead(buttonPins[i])) { // Check again after a small delay
-            _stableButtonState[i] = currentReading;
-        }
-        _lastButtonReading[i] = currentReading; // Update last reading for next cycle
+        _lastReading[i] = reading; // Save the current reading for the next loop
     }
-}
-
-// Helper functions to check debounced button state
-bool _DoorLockImpl::_isButtonPinDown(int pinArrayIndex) {
-    _updateButtonStates(); // Always update states before checking to get latest debounced reading
-    return _stableButtonState[pinArrayIndex] == LOW; // Assuming pull-up resistors (button pressed = LOW)
-}
-
-// Public methods for checking specific button states (use _isButtonPinDown internally)
-bool _DoorLockImpl::isButton1Down() { return _isButtonPinDown(0); }
-bool _DoorLockImpl::isButton2Down() { return _isButtonPinDown(1); }
-bool _DoorLockImpl::isButton3Down() { return _isButtonPinDown(2); }
-bool _DoorLockImpl::isLockButtonDown() { return _isButtonPinDown(3); }
-
-
-// --- Configuration Update Functions ---
-void _DoorLockImpl::setSecretCode(const int* newCode, int newCodeLength) {
-    if (newCodeLength != _codeLength) {
-        delete[] _correctCode; // Free old memory
-        delete[] _attempt;     // Free old attempt buffer
-        _codeLength = newCodeLength;
-        _correctCode = new int[_codeLength]; // Allocate new memory for correct code
-        _attempt = new int[_codeLength];     // Allocate new memory for attempt
-    }
-    // Copy the new code into the allocated memory
-    for (int i = 0; i < _codeLength; ++i) {
-        _correctCode[i] = newCode[i];
-    }
-    resetCodeEntry(); // Reset any ongoing attempt
-    Serial.println("Secret code updated.");
-}
-
-void _DoorLockImpl::setPinAssignments(int button1, int button2, int button3, int lockButton,
-                                    int greenLED, int redLED, int servoPin, int buzzerPin) {
-    _button1Pin = button1;
-    _button2Pin = button2;
-    _button3Pin = button3;
-    _lockButtonPin = lockButton;
-    _greenLEDPin = greenLED;
-    _redLEDPin = redLED;
-    _servoPin = servoPin;
-    _buzzerPin = buzzerPin;
-
-    // Re-initialize pin modes for the newly assigned pins
-    pinMode(_button1Pin, INPUT_PULLUP);
-    pinMode(_button2Pin, INPUT_PULLUP);
-    pinMode(_button3Pin, INPUT_PULLUP);
-    pinMode(_lockButtonPin, INPUT_PULLUP);
-    pinMode(_redLEDPin, OUTPUT);
-    pinMode(_greenLEDPin, OUTPUT);
-    pinMode(_buzzerPin, OUTPUT);
-    _doorServo.attach(_servoPin); // Re-attach servo to the new pin
-    Serial.println("Pin assignments updated.");
 }
 
 
@@ -278,99 +331,120 @@ void _DoorLockImpl::setPinAssignments(int button1, int button2, int button3, int
 // Each function simply forwards the call to the single '_theDoorLockInstance'.
 
 namespace DoorLock {
-    // Overloaded begin() functions for various initialization options
-    void begin() {
-        _theDoorLockInstance.begin();
+    // Overloaded start() functions for various initialization options
+    void start() {
+        _theDoorLockInstance.start();
     }
-    void begin(const int* customCode, int customCodeLength) {
-        _theDoorLockInstance.setSecretCode(customCode, customCodeLength);
-        _theDoorLockInstance.begin();
+    void start(int* correctCode, int codeLength) {
+        // Creates a temporary pins array with default values
+        int pins[] = {DOORLOCK_BUTTON1_PIN, DOORLOCK_BUTTON2_PIN, DOORLOCK_BUTTON3_PIN,
+                      DOORLOCK_LOCK_BUTTON_PIN, DOORLOCK_GREEN_LED_PIN, DOORLOCK_RED_LED_PIN,
+                      DOORLOCK_SERVO_PIN, DOORLOCK_BUZZER_PIN};
+        _theDoorLockInstance._DoorLockImpl::setPins(pins); // Use qualified call to avoid ambiguity
+        _theDoorLockInstance.setCorrectCode(correctCode);
+        _theDoorLockInstance.start();
     }
-    void begin(int button1, int button2, int button3, int lockButton,
+    void start(int button1, int button2, int button3, int lockButton,
                int greenLED, int redLED, int servoPin, int buzzerPin) {
-        _theDoorLockInstance.setPinAssignments(button1, button2, button3, lockButton,
-                                              greenLED, redLED, servoPin, buzzerPin);
-        _theDoorLockInstance.begin();
+        // Creates a temporary correctCode array with default values
+        int code[] = {DOORLOCK_DEFAULT_CODE[0], DOORLOCK_DEFAULT_CODE[1], DOORLOCK_DEFAULT_CODE[2]};
+        int codeLength = DOORLOCK_DEFAULT_CODE_LENGTH;
+
+        int pins[] = {button1, button2, button3, lockButton, greenLED, redLED, servoPin, buzzerPin};
+        _theDoorLockInstance.setCorrectCode(code); // Set default code
+        _theDoorLockInstance._DoorLockImpl::setPins(pins); // Set custom pins
+        _theDoorLockInstance.start();
     }
-    void begin(const int* customCode, int customCodeLength,
-               int button1, int button2, int button3, int lockButton,
-               int greenLED, int redLED, int servoPin, int buzzerPin) {
-        _theDoorLockInstance.DoorLockInternal::setSecretCode(customCode, customCodeLength); // Use fully qualified name to avoid ambiguity if 'setCode' was also a global function.
-        _theDoorLockInstance.setPinAssignments(button1, button2, button3, lockButton,
-                                              greenLED, redLED, servoPin, buzzerPin);
-        _theDoorLockInstance.begin();
+    void start(int* correctCode, int codeLength, int button1, int button2, int button3,
+               int lockButton, int greenLED, int redLED, int servoPin, int buzzerPin) {
+        int pins[] = {button1, button2, button3, lockButton, greenLED, redLED, servoPin, buzzerPin};
+        _theDoorLockInstance.setCorrectCode(correctCode);
+        _theDoorLockInstance._DoorLockImpl::setPins(pins);
+        _theDoorLockInstance.start();
     }
 
     // Lock Actions
     void unlock() {
-        _theDoorLockInstance.unlockDoor();
+        _theDoorLockInstance.DoorUnlock();
     }
     void lock() {
-        _theDoorLockInstance.lockDoor();
+        _theDoorLockInstance.DoorLock(); // Calls the internally renamed function
     }
-    bool isLocked() {
-        return _theDoorLockInstance.isDoorLocked();
+    void open() {
+        _theDoorLockInstance.open();
     }
-
-    // Code Entry
-    void input(int digit) {
-        _theDoorLockInstance.enterDigit(digit);
-    }
-    void resetCode() {
-        _theDoorLockInstance.resetCodeEntry();
-    }
-    bool checkCode() {
-        return _theDoorLockInstance.checkEnteredCode();
+    void close() {
+        _theDoorLockInstance.close();
     }
 
-    // LED Control
-    void turnRedLEDOn() {
-        _theDoorLockInstance.turnRedLEDOn();
+    // Code Entry and Verification
+    void Incorrect() {
+        _theDoorLockInstance.DoorIncorrect();
     }
-    void turnRedLEDOff() {
-        _theDoorLockInstance.turnRedLEDOff();
+    void resetAttempt() {
+        _theDoorLockInstance.resetAttempt();
     }
-    void turnGreenLEDOn() {
-        _theDoorLockInstance.turnGreenLEDOn();
-    }
-    void turnGreenLEDOff() {
-        _theDoorLockInstance.turnGreenLEDOff();
+    bool isAttemptCorrect() {
+        return _theDoorLockInstance.isAttemptCorrect();
     }
 
-    // Sound Feedback
-    void playSuccessSound() {
-        _theDoorLockInstance.playSuccessSound();
+    // Configuration Setters
+    void setCorrectCode(int* code) {
+        _theDoorLockInstance.setCorrectCode(code);
     }
-    void playFailSound() {
-        _theDoorLockInstance.playIncorrectSound();
+    void setPins(int* pins) {
+        _theDoorLockInstance.setPins(pins);
     }
-    void stopSound() {
-        _theDoorLockInstance.stopSound();
+
+    // Button Press Handlers
+    void button1Pressed() {
+        _theDoorLockInstance.button1Pressed();
+    }
+    void button2Pressed() {
+        _theDoorLockInstance.button2Pressed();
+    }
+    void button3Pressed() {
+        _theDoorLockInstance.button3Pressed();
     }
 
     // Button Status Checks
-    bool isButton1Down() {
-        return _theDoorLockInstance.isButton1Down();
+    bool isButton1Pressed() {
+        return _theDoorLockInstance.isButton1Pressed();
     }
-    bool button2IsPressed() {
-        return _theDoorLockInstance.isButton2Down();
+    bool isButton2Pressed() {
+        return _theDoorLockInstance.isButton2Pressed();
     }
-    bool button3IsPressed() {
-        return _theDoorLockInstance.isButton3Down();
+    bool isButton3Pressed() {
+        return _theDoorLockInstance.isButton3Pressed();
     }
-    bool lockButtonIsPressed() {
-        return _theDoorLockInstance.isLockButtonDown();
-    }
-
-    // Optional: Setters for code/pins after begin() if needed
-    void setCode(const int* newCode, int newCodeLength) {
-        _theDoorLockInstance.setSecretCode(newCode, newCodeLength);
+    bool isLockButtonPressed() {
+        return _theDoorLockInstance.isLockButtonPressed();
     }
 
-    void setPins(int button1, int button2, int button3, int lockButton,
-                 int greenLED, int redLED, int servoPin, int buzzerPin) {
-        _theDoorLockInstance.setPinAssignments(button1, button2, button3, lockButton,
-                                              greenLED, redLED, servoPin, buzzerPin);
+    // LED Control
+    void redLEDToggle(bool state) {
+        _theDoorLockInstance.redLEDToggle(state);
     }
+    void greenLEDToggle(bool state) {
+        _theDoorLockInstance.greenLEDToggle(state);
+    }
+
+    // Buzzer Control
+    void buzzerOn(int hz) {
+        _theDoorLockInstance.buzzerOn(hz);
+    }
+    void buzzerOff() {
+        _theDoorLockInstance.buzzerOff();
+    }
+
+    // Getter methods (forwarding to internal getters)
+    int getButton1() { return _theDoorLockInstance.getButton1(); }
+    int getButton2() { return _theDoorLockInstance.getButton2(); }
+    int getButton3() { return _theDoorLockInstance.getButton3(); }
+    int getLockButton() { return _theDoorLockInstance.getLockButton(); }
+    int getGreenLED() { return _theDoorLockInstance.getGreenLED(); }
+    int getRedLED() { return _theDoorLockInstance.getRedLED(); }
+    int getServoPin() { return _theDoorLockInstance.getServoPin(); }
+    int getBuzzerPin() { return _theDoorLockInstance.getBuzzerPin(); }
 
 } // end namespace DoorLock

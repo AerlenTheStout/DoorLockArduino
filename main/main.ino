@@ -1,64 +1,64 @@
 #include <Servo.h>
-#include <DoorLock.h>
+#include "DoorLock.h"
+using namespace DoorLock;
 // #define and &&
 // #define or ||
 
-DoorLock doorLock = DoorLock(new int[3]{1, 2, 3}, 3, true);
+void setup() {
+  start();
+}
 
 void unlock() {
-  doorLock.locked = false;
-  doorLock.open();
-  doorLock.redLEDToggle(false);
-  tone(doorLock.getBuzzerPin(), 1000);
+  locked = false;
+  open();
+  greenLEDToggle(true);
+  buzzerOn(1000);
   delay(2000);
-  digitalWrite(doorLock.getGreenLED(), LOW);
-  doorLock.resetAttempt();
+  buzzerOff();
+  greenLEDToggle(false);
+  resetAttempt();
 }
 void lock() {
-  doorLock.locked = true;
-  doorLock.close();
-  digitalWrite(doorLock.getRedLED(), HIGH);
+  locked = true;
+  close();
+  redLEDToggle(true);
+  buzzerOn(500);
   delay(2000);
-  digitalWrite(doorLock.getRedLED(), LOW);
-  doorLock.resetAttempt();
+  buzzerOff();
+  redLEDToggle(false);
+  resetAttempt();
 }
 void incorrect() {
-  digitalWrite(doorLock.getRedLED(), HIGH);
+  redLEDToggle(true);
+  buzzerOn(2000);
   delay(1000);
-  digitalWrite(doorLock.getRedLED(), LOW);
-  doorLock.resetAttempt();
+  buzzerOff();
+  redLEDToggle(false);
+  resetAttempt();
 }
 
-void setup() {
-  doorLock.start();
-}
 
 void loop() {
   // put your main code here, to run repeatedly:
-  if(doorLock.isButton1Pressed()) {
-    doorLock.button1Pressed();
+  if(isButton1Pressed()) {
+    button1Pressed();
   }
 
-  if(doorLock.isButton2Pressed()) {
-    doorLock.button2Pressed();
+  if(isButton2Pressed()) {
+    button2Pressed();
   }
 
-  if(doorLock.isButton3Pressed()) {
-    doorLock.button3Pressed();
+  if(isButton3Pressed()) {
+    button3Pressed();
   }
 
-  if(doorLock.isLockButtonPressed()) {
-    if (!doorLock.locked) {
-      doorLock.lock();
-      doorLock.buzz(1000);
-    }else if(doorLock.isAttemptCorrect()) {
-      doorLock.unlock();
-      doorLock.buzz(200);
-      delay(100);
-      doorLock.buzz(200);
-    } else if(doorLock.locked) {
-      doorLock.incorrect();
-      doorLock.buzz(1000);
+  if(isLockButtonPressed()) {
+    if (!locked) {
+      lock();
+    } else if(isAttemptCorrect()) {
+      unlock();
+    } else if(locked) {
+      incorrect();
     }
     delay(250);
   }
