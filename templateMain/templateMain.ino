@@ -1,5 +1,5 @@
 #include <Servo.h> // this lets us use the Servo
-#include "DoorLock.h" // This includes the DoorLock library, which contains all the methods we need to control the door lock system.
+#include "Library/DoorLock.h" // This includes the DoorLock library, which contains all the methods we need to control the door lock system.
 using namespace DoorLock; // This imports the Door Lock interface, which makes the methods like isButton1Pressed() and start() available to use.
 // Dont touch anything above this comment, or the program will not work
 
