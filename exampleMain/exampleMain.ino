@@ -3,6 +3,20 @@
 using namespace DoorLock;
 // Dont touch anything above this comment, or the program will not work
 
+
+// This setup method is an example of how we would set a custom code and start the door lock system.
+/* void setup() {
+  int array[3] = {1, 2, 3};
+  start(array, 3);
+} */
+
+// This setup method is an example of another way to set a custom code and start the door lock system.
+/* void setup() {
+  start();
+  int array[3] = {1, 2, 3};
+  setCorrectCode(array, 3);
+} */
+
 void setup() {
   start();
 }
