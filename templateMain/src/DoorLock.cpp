@@ -158,48 +158,41 @@ bool _DoorLockImpl::isAttemptCorrect()
 }
 
 // --- Configuration Setters (Original Names) ---
-void _DoorLockImpl::setCorrectCode(int* code, int codeLength)
+void _DoorLockImpl::setCorrectCode(int* code)
 {
-    // If the code length has changed, reallocate memory for _correctCode and _attempt
-    if (codeLength != _codeLength) {
-        delete[] _correctCode;
-        delete[] _attempt;
-        _codeLength = codeLength;
-        _correctCode = new int[_codeLength];
-        _attempt = new int[_codeLength];
-        for (int i = 0; i < _codeLength; i++) {
-            _attempt[i] = 0;
-        }
-    }
-    // Copy the new code
+    // Copies the contents of the new code array.
+    // This is safer than just assigning the pointer.
     for (int i = 0; i < _codeLength; i++) {
         _correctCode[i] = code[i];
     }
-    _inputIndex = 0;
-    Serial.println("Secret code and code length updated.");
+    Serial.println("Secret code updated.");
 }
 
-void _DoorLockImpl::setPins(int button1, int button2, int button3, int lockButton, int greenLED, int redLED, int servoPin, int buzzerPin)
+void _DoorLockImpl::setPins(int* pins)
 {
-    _button1 = button1;
-    _button2 = button2;
-    _button3 = button3;
-    _lockButton = lockButton;
-    _greenLED = greenLED;
-    _redLED = redLED;
-    _servoPin = servoPin;
-    _buzzerPin = buzzerPin;
+    // Assumes `pins` array has a specific order:
+    // {button1, button2, button3, lockButton, greenLED, redLED, servoPin, buzzerPin}
+    if (pins) { // Basic check to ensure pins is not null
+        _button1 = pins[0];
+        _button2 = pins[1];
+        _button3 = pins[2];
+        _lockButton = pins[3];
+        _greenLED = pins[4];
+        _redLED = pins[5];
+        _servoPin = pins[6];
+        _buzzerPin = pins[7];
 
-    // Re-initialize pin modes for the newly assigned pins
-    pinMode(_button1, INPUT_PULLUP); // Using PULLUP for safety
-    pinMode(_button2, INPUT_PULLUP);
-    pinMode(_button3, INPUT_PULLUP);
-    pinMode(_lockButton, INPUT_PULLUP);
-    pinMode(_redLED, OUTPUT);
-    pinMode(_greenLED, OUTPUT);
-    pinMode(_buzzerPin, OUTPUT);
-    _servo.attach(_servoPin); // Re-attach servo to the new pin
-    Serial.println("Pin assignments updated.");
+        // Re-initialize pin modes for the newly assigned pins
+        pinMode(_button1, INPUT_PULLUP); // Using PULLUP for safety
+        pinMode(_button2, INPUT_PULLUP);
+        pinMode(_button3, INPUT_PULLUP);
+        pinMode(_lockButton, INPUT_PULLUP);
+        pinMode(_redLED, OUTPUT);
+        pinMode(_greenLED, OUTPUT);
+        pinMode(_buzzerPin, OUTPUT);
+        _servo.attach(_servoPin); // Re-attach servo to the new pin
+        Serial.println("Pin assignments updated.");
+    }
 }
 
 // --- Button Press Handlers (Original Names) ---
@@ -279,6 +272,7 @@ bool _DoorLockImpl::isLockButtonPressed()
     return pressed;
 }
 
+// --- LED Control (Original Names) ---
 void _DoorLockImpl::redLEDToggle(bool state)
 {
     digitalWrite(_redLED, state ? HIGH : LOW);
@@ -289,6 +283,7 @@ void _DoorLockImpl::greenLEDToggle(bool state)
     digitalWrite(_greenLED, state ? HIGH : LOW);
 }
 
+// --- Buzzer Control (Original Names) ---
 void _DoorLockImpl::buzzerOn(int hz)
 {
     tone(_buzzerPin, hz);
@@ -337,191 +332,108 @@ void _DoorLockImpl::scanButtons()
 
 namespace DoorLock {
     bool locked = _theDoorLockInstance.locked;
-    
-/**
- * @brief Initializes and starts the door lock system with default settings.
- * @note This method uses both the default secret code and the default hardware pin assignments.
- * It is the simplest way to get the system running.
- */
-void start() {
-    _theDoorLockInstance.start();
-}
+    // Overloaded start() functions for various initialization options
+    void start() {
+        _theDoorLockInstance.start();
+    }
+    void start(int* correctCode, int codeLength) {
+        // Creates a temporary pins array with default values
+        int pins[] = {DOORLOCK_BUTTON1_PIN, DOORLOCK_BUTTON2_PIN, DOORLOCK_BUTTON3_PIN,
+                      DOORLOCK_LOCK_BUTTON_PIN, DOORLOCK_GREEN_LED_PIN, DOORLOCK_RED_LED_PIN,
+                      DOORLOCK_SERVO_PIN, DOORLOCK_BUZZER_PIN};
+        _theDoorLockInstance._DoorLockImpl::setPins(pins); // Use qualified call to avoid ambiguity
+        _theDoorLockInstance.setCorrectCode(correctCode);
+        _theDoorLockInstance.start();
+    }
+    void start(int button1, int button2, int button3, int lockButton,
+               int greenLED, int redLED, int servoPin, int buzzerPin) {
+        // Creates a temporary correctCode array with default values
+        int code[] = {DOORLOCK_DEFAULT_CODE[0], DOORLOCK_DEFAULT_CODE[1], DOORLOCK_DEFAULT_CODE[2]};
+        int codeLength = DOORLOCK_DEFAULT_CODE_LENGTH;
 
-/**
- * @brief Initializes the system with a custom secret code and default pins.
- * @param[in] correctCode A pointer to an integer array representing the secret code sequence.
- * @param[in] codeLength The number of elements in the correctCode array.
- * @note This method uses the default hardware pin assignments for all components.
- */
-void start(int* correctCode, int codeLength) {
-    // Creates a temporary pins array with default values
-    _theDoorLockInstance.setPins(
-        DOORLOCK_BUTTON1_PIN, DOORLOCK_BUTTON2_PIN, DOORLOCK_BUTTON3_PIN,
-        DOORLOCK_LOCK_BUTTON_PIN, DOORLOCK_GREEN_LED_PIN, DOORLOCK_RED_LED_PIN,
-        DOORLOCK_SERVO_PIN, DOORLOCK_BUZZER_PIN
-    );
-    _theDoorLockInstance.setCorrectCode(correctCode, codeLength);
-    _theDoorLockInstance.start();
-}
+        int pins[] = {button1, button2, button3, lockButton, greenLED, redLED, servoPin, buzzerPin};
+        _theDoorLockInstance.setCorrectCode(code); // Set default code
+        _theDoorLockInstance._DoorLockImpl::setPins(pins); // Set custom pins
+        _theDoorLockInstance.start();
+    }
+    void start(int* correctCode, int codeLength, int button1, int button2, int button3,
+               int lockButton, int greenLED, int redLED, int servoPin, int buzzerPin) {
+        int pins[] = {button1, button2, button3, lockButton, greenLED, redLED, servoPin, buzzerPin};
+        _theDoorLockInstance.setCorrectCode(correctCode);
+        _theDoorLockInstance._DoorLockImpl::setPins(pins);
+        _theDoorLockInstance.start();
+    }
 
-/**
- * @brief Initializes the system with custom pin assignments and the default secret code.
- * @param[in] button1 The GPIO pin for the first input button.
- * @param[in] button2 The GPIO pin for the second input button.
- * @param[in] button3 The GPIO pin for the third input button.
- * @param[in] lockButton The GPIO pin for the button that finalizes code entry.
- * @param[in] greenLED The GPIO pin for the green status LED (success).
- * @param[in] redLED The GPIO pin for the red status LED (failure).
- * @param[in] servoPin The GPIO pin controlling the door lock servo motor.
- * @param[in] buzzerPin The GPIO pin for the audible buzzer.
- * @note This will use the predefined default secret code.
- */
-void start(int button1, int button2, int button3, int lockButton,
-           int greenLED, int redLED, int servoPin, int buzzerPin) {
-    // Creates a temporary correctCode array with default values
-    int code[] = {DOORLOCK_DEFAULT_CODE[0], DOORLOCK_DEFAULT_CODE[1], DOORLOCK_DEFAULT_CODE[2]};
-    int codeLength = DOORLOCK_DEFAULT_CODE_LENGTH;
-
-    _theDoorLockInstance.setCorrectCode(code, codeLength); // Set default code
-    _theDoorLockInstance._DoorLockImpl::setPins(button1, button2, button3, lockButton, greenLED, redLED, servoPin, buzzerPin);   // Set custom pins
-    _theDoorLockInstance.start();
-}
-
-/**
- * @brief Initializes the system with a custom secret code and custom pin assignments.
- * @param[in] correctCode A pointer to an integer array representing the secret code sequence.
- * @param[in] codeLength The number of elements in the correctCode array.
- * @param[in] button1 The GPIO pin for the first input button.
- * @param[in] button2 The GPIO pin for the second input button.
- * @param[in] button3 The GPIO pin for the third input button.
- * @param[in] lockButton The GPIO pin for the button that finalizes code entry.
- * @param[in] greenLED The GPIO pin for the green status LED (success).
- * @param[in] redLED The GPIO pin for the red status LED (failure).
- * @param[in] servoPin The GPIO pin controlling the door lock servo motor.
- * @param[in] buzzerPin The GPIO pin for the audible buzzer.
- */
-void start(int* correctCode, int codeLength, int button1, int button2, int button3,
-           int lockButton, int greenLED, int redLED, int servoPin, int buzzerPin) {
-    _theDoorLockInstance.setCorrectCode(correctCode, codeLength);
-    _theDoorLockInstance._DoorLockImpl::setPins(button1, button2, button3, lockButton, greenLED, redLED, servoPin, buzzerPin);
-    _theDoorLockInstance.start();
-}
-
-    /* This is a premade unlock the door function.
-    You may use this one if you would like, but try to make your own!
-    */
+    // Lock Actions
     void DoorUnlock() {
         _theDoorLockInstance.DoorUnlock();
     }
-
-    /* This is a premade lock the door function.
-    You may use this one if you would like, but try to make your own!
-    */
     void DoorLock() {
         _theDoorLockInstance.DoorLock(); // Calls the internally renamed function
     }
-
-    void DoorIncorrect() {
-        _theDoorLockInstance.DoorIncorrect();
-    }
-
-    /* This method opens the door by turning the servo to 180 degrees. */
     void open() {
         _theDoorLockInstance.open();
     }
-    /* This method closes the door by turning the servo to 0 degrees. */
     void close() {
         _theDoorLockInstance.close();
     }
 
-    /* This method resets the attempt array/list that holds the previous entered code. */
+    // Code Entry and Verification
+    void DoorIncorrect() {
+        _theDoorLockInstance.DoorIncorrect();
+    }
     void resetAttempt() {
         _theDoorLockInstance.resetAttempt();
     }
-    /* This method checks if the current attempt matches the correct code.
-    It returns true if the attempt is correct, false otherwise. */
     bool isAttemptCorrect() {
         return _theDoorLockInstance.isAttemptCorrect();
     }
 
-    /** This method sets the correct code for the door lock.
-    @param[in] code A pointer to an integer array representing the secret code sequence.
-    @param[in] codeLength The number of elements in the code array.
-    */
-    void setCorrectCode(int* code, int codeLength) {
-        _theDoorLockInstance.setCorrectCode(code, codeLength);
+    // Configuration Setters
+    void setCorrectCode(int* code) {
+        _theDoorLockInstance.setCorrectCode(code);
+    }
+    void setPins(int* pins) {
+        _theDoorLockInstance.setPins(pins);
     }
 
-    /** 
-     * @brief Sets the pin assignments for the door lock system.
-     * @param[in] button1 The pin for the first input button.
-     * @param[in] button2 The pin for the second input button.
-     * @param[in] button3 The pin for the third input button.
-     * @param[in] lockButton The pin for the button that finalizes code entry.
-     * @param[in] greenLED The pin for the green status LED (success).
-     * @param[in] redLED The pin for the red status LED (failure).
-     * @param[in] servoPin The pin controlling the door lock servo motor.
-     * @param[in] buzzerPin The pin for the buzzer.
-     */
-    void setPins(int button1, int button2, int button3, int lockButton, int greenLED, int redLED, int servoPin, int buzzerPin) {
-        _theDoorLockInstance.setPins(button1, button2, button3, lockButton, greenLED, redLED, servoPin, buzzerPin);
-    }
-
-    // This method tells the door lock system the button 1 was pressed.
+    // Button Press Handlers
     void button1Pressed() {
         _theDoorLockInstance.button1Pressed();
     }
-    // This method tells the door lock system the button 2 was pressed.
     void button2Pressed() {
         _theDoorLockInstance.button2Pressed();
     }
-    // This method tells the door lock system the button 3 was pressed.
     void button3Pressed() {
         _theDoorLockInstance.button3Pressed();
     }
 
-    // This method returns true if button 1 is being pressed
+    // Button Status Checks
     bool isButton1Pressed() {
         return _theDoorLockInstance.isButton1Pressed();
     }
-    // This method returns true if button 2 is being pressed
     bool isButton2Pressed() {
         return _theDoorLockInstance.isButton2Pressed();
     }
-    // This method returns true if button 3 is being pressed
     bool isButton3Pressed() {
         return _theDoorLockInstance.isButton3Pressed();
     }
-    // This method returns true if the lock button is being pressed
     bool isLockButtonPressed() {
         return _theDoorLockInstance.isLockButtonPressed();
     }
 
-    /**
-     * @brief Toggles the state of the red LED.
-     * @param[in] state True to turn on the red LED, false to turn it off.
-     */
+    // LED Control
     void redLEDToggle(bool state) {
         _theDoorLockInstance.redLEDToggle(state);
     }
-    /**
-     * @brief Toggles the state of the green LED.
-     * @param[in] state True to turn on the green LED, false to turn it off.
-     */
     void greenLEDToggle(bool state) {
         _theDoorLockInstance.greenLEDToggle(state);
     }
 
-    /**
-     * @brief Turns on the buzzer at a specified frequency.
-     * @param[in] hz The frequency in Hertz to set the buzzer.
-     */
+    // Buzzer Control
     void buzzerOn(int hz) {
         _theDoorLockInstance.buzzerOn(hz);
     }
-    /**
-     * @brief Turns off the buzzer.
-     */
     void buzzerOff() {
         _theDoorLockInstance.buzzerOff();
     }
@@ -536,9 +448,6 @@ void start(int* correctCode, int codeLength, int button1, int button2, int butto
     int getServoPin() { return _theDoorLockInstance.getServoPin(); }
     int getBuzzerPin() { return _theDoorLockInstance.getBuzzerPin(); }
 
-    /**
-     * @brief This method scans the buttons and updates the system.
-     */
     void scanButtons() {
         _theDoorLockInstance.scanButtons();
     }
