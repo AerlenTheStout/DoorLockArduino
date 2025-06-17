@@ -72,41 +72,35 @@ public: // Changed constructors to PUBLIC access
 
     // --- Core Public Methods (Original Names) ---
 
-    // Initializes all hardware pins and sets initial lock state (original: start)
     void start();
     void scanButtons();
 
-    // Lock Actions (original names)
     void DoorUnlock();
-    void DoorLock(); // Renamed to avoid clash with namespace function 'lock'
-    void open();      // Original name
-    void close();     // Original name
+    void DoorLock(); 
+    void DoorIncorrect();
 
-    // Code entry and verification (original names)
-    void DoorIncorrect(); // Original name, includes LED and reset
-    void resetAttempt(); // Original name
-    bool isAttemptCorrect(); // Original name
-
-    // Functions to set configurations (original names)
-    void setCorrectCode(int* code); // Updated to accept int*
-    void setPins(int* pins); // Assumes pins array has a fixed order of all pins
-
-    // Button press handlers (original names)
-    void button1Pressed();
-    void button2Pressed();
-    void button3Pressed();
-
-    // Button status checks (original names)
+    void resetAttempt();
+    bool isAttemptCorrect();
+    
+    void setCorrectCode(int *code, int codeLength);
+    void setPins(int button1, int button2, int button3, int lockButton, int greenLED, int redLED, int servoPin, int buzzerPin);
+    
+    
     bool isButton1Pressed();
     bool isButton2Pressed();
     bool isButton3Pressed();
     bool isLockButtonPressed();
 
-    // LED Control (original names)
+    void button1Pressed();
+    void button2Pressed();
+    void button3Pressed();
+    
+    void open();
+    void close();
+
     void redLEDToggle(bool state);
     void greenLEDToggle(bool state);
 
-    // Buzzer Control (original names)
     void buzzerOn(int hz);
     void buzzerOff();
 
@@ -129,54 +123,47 @@ public: // Changed constructors to PUBLIC access
 // This namespace provides the simple, direct function calls for campers.
 // They will use these functions like `DoorLock::unlock()` or `DoorLock::button1Pressed()`.
 namespace DoorLock {
-	// Expose the locked state as a variable (not recommended, but per user request)
+	// This variable stores the current locked state of the door.
 	extern bool locked;
-	// Initialization function (original: start)
-    // We'll create overloads for different initialization scenarios
-    void start(); // Uses default pins and code
-    void start(int* correctCode, int codeLength); // Custom code, default pins
+
+
+    void start(); 
+    void start(int* correctCode, int codeLength);
     void start(int button1, int button2, int button3, int lockButton,
-               int greenLED, int redLED, int servoPin, int buzzerPin); // Custom pins, default code
+               int greenLED, int redLED, int servoPin, int buzzerPin);
     void start(int* correctCode, int codeLength, int button1, int button2, int button3,
-               int lockButton, int greenLED, int redLED, int servoPin, int buzzerPin); // All custom
+               int lockButton, int greenLED, int redLED, int servoPin, int buzzerPin);
 
 	void scanButtons();
 
-    // Lock Actions (original names)
+    
     void DoorUnlock();
     void DoorLock();
     void open();
     void close();
 
-    // Code Entry and Verification (original names)
     void DoorIncorrect();
     void resetAttempt();
     bool isAttemptCorrect();
 
-    // Configuration Setters (original names)
-    void setCorrectCode(int* code); // Parameter type matches _DoorLockImpl
+    void setCorrectCode(int* code);
     void setPins(int* pins); // Assumes pins array has a fixed order of all pins
 
-    // Button press handlers (original names)
     void button1Pressed();
     void button2Pressed();
     void button3Pressed();
 
-    // Button status checks (original names)
     bool isButton1Pressed();
     bool isButton2Pressed();
     bool isButton3Pressed();
     bool isLockButtonPressed();
 
-    // LED Control (original names)
     void redLEDToggle(bool state);
     void greenLEDToggle(bool state);
 
-    // Buzzer Control (original names)
     void buzzerOn(int hz);
     void buzzerOff();
 
-    // Getter methods (original names, forwarding to internal getters)
     int getButton1();
     int getButton2();
     int getButton3();
