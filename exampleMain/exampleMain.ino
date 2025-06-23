@@ -6,7 +6,7 @@ using namespace DoorLock;
 
 // This setup method is an example of how we would set a custom code and start the door lock system.
 /* void setup() {
-  int array[3] = {1, 2, 3};
+  int array[3] = {3, 2, 3};
   start(array, 3);
 } */
 
@@ -15,6 +15,18 @@ using namespace DoorLock;
   start();
   int array[3] = {1, 2, 3};
   setCorrectCode(array, 3);
+} */
+
+
+/* void setup() {
+  start();
+  
+  // This is an example of how to set a custom code.
+  int array[4] = {3, 3, 3, 3}; 
+  setCorrectCode(array, 4); 
+
+  // This is an example of how to set the pins for the buttons, LEDs, servo and buzzer.
+  setPins(2, 3, 4, 6, 9, 8, 11, 13); // Set the pins for buttons, LEDs, servo and buzzer
 } */
 
 void setup() {

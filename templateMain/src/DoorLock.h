@@ -146,8 +146,8 @@ namespace DoorLock {
     void resetAttempt();
     bool isAttemptCorrect();
 
-    void setCorrectCode(int* code);
-    void setPins(int* pins); // Assumes pins array has a fixed order of all pins
+    void setCorrectCode(int* code, int codeLength); 
+    void setPins(int button1, int button2, int button3, int lockButton, int greenLED, int redLED, int servoPin, int buzzerPin); // Assumes pins array has a fixed order of all pins
 
     void button1Pressed();
     void button2Pressed();
