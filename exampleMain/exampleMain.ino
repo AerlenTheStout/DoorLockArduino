@@ -10,6 +10,7 @@ using namespace DoorLock;
   start(array, 3);
 } */
 
+
 // This setup method is an example of another way to set a custom code and start the door lock system.
 /* void setup() {
   start();
@@ -27,6 +28,16 @@ using namespace DoorLock;
 
   // This is an example of how to set the pins for the buttons, LEDs, servo and buzzer.
   setPins(2, 3, 4, 6, 9, 8, 11, 13); // Set the pins for buttons, LEDs, servo and buzzer
+} */
+
+// This is an example of an extra thing the youth might want to do, this lets them grab the servo object and use it.
+/* 
+void setup() {
+  start();
+  Servo& servo = getServo();
+  servo.attach(getServoPin()); // Attach the servo to the specified pin
+
+  servo.write(0); // Initialize the servo to the closed position
 } */
 
 void setup() {

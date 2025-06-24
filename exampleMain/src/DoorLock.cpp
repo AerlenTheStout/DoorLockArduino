@@ -536,6 +536,8 @@ void start(int* correctCode, int codeLength, int button1, int button2, int butto
     int getServoPin() { return _theDoorLockInstance.getServoPin(); }
     int getBuzzerPin() { return _theDoorLockInstance.getBuzzerPin(); }
 
+    Servo& getServo() { return _theDoorLockInstance.getServo(); }
+
     /**
      * @brief This method scans the buttons and updates the system.
      */
