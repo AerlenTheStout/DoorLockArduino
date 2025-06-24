@@ -114,6 +114,8 @@ public: // Changed constructors to PUBLIC access
     int getServoPin() { return _servoPin; }
     int getBuzzerPin() { return _buzzerPin; }
 
+    Servo& getServo() { return _servo; } // Getter for Servo object
+
     // Public member (original: int* attempt;)
     // int* _attempt; // This is now private and managed internally.
 };
@@ -172,6 +174,8 @@ namespace DoorLock {
     int getRedLED();
     int getServoPin();
     int getBuzzerPin();
+
+    Servo& getServo(); // Getter for Servo object
 
 } // end namespace DoorLock
 
