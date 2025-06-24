@@ -200,6 +200,15 @@ void _DoorLockImpl::setPins(int button1, int button2, int button3, int lockButto
     pinMode(_buzzerPin, OUTPUT);
     _servo.attach(_servoPin); // Re-attach servo to the new pin
     Serial.println("Pin assignments updated.");
+    Serial.println("Pins set: ");
+    Serial.print("Button 1: "); Serial.println(_button1);
+    Serial.print("Button 2: "); Serial.println(_button2);
+    Serial.print("Button 3: "); Serial.println(_button3);
+    Serial.print("Lock Button: "); Serial.println(_lockButton);
+    Serial.print("Green LED: "); Serial.println(_greenLED);
+    Serial.print("Red LED: "); Serial.println(_redLED);
+    Serial.print("Servo Pin: "); Serial.println(_servoPin);
+    Serial.print("Buzzer Pin: "); Serial.println(_buzzerPin);
 }
 
 // --- Button Press Handlers (Original Names) ---
