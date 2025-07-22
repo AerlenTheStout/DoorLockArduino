@@ -16,18 +16,81 @@ using namespace DoorLock;
   start();
   int array[3] = {1, 2, 3};
   setCorrectCode(array, 3);
+  } */
+ 
+ // This way to start the door lock system is an example of how to set a custom code using the door lock buttons itself
+ 
+ /* void setup() {
+  start();
+  setPins(2, 3, 4, 5, 9, 8, 11, 13); // Set the pins for buttons, LEDs, servo and buzzer
+
+
+  Serial.println(digitalRead(5) == HIGH);
+  if(digitalRead(5) == HIGH) {
+    int index = 0;
+    int customCode[] = {0,0,0};
+    Serial.println("Press the buttons to set a custom code. Press the lock button when done.");
+    while (true)
+    {
+      Serial.print("looping");
+      scanButtons();
+      if (isButton1Pressed())
+      {
+        customCode[index] = 1;
+        index++;
+      } else if(isButton2Pressed())
+      {
+        customCode[index] = 2;
+        index++;
+      } else if (isButton3Pressed())
+      {
+        customCode[index] = 3;
+        index++;
+      }
+      if (index >= 3 && isLockButtonPressed()) {
+        for (int i = 0; i < 3; i++) {
+          Serial.print(customCode[i]);
+          Serial.print(" ");
+        }
+        setCorrectCode(customCode, 3);
+        break; // Exit the loop when we have 3 digits
+      }
+    }
+  } else {
+    // This is an example of how to set a custom code.
+    randomSeed(analogRead(0) + millis()); // Better random seed using analog noise + time
+    int array[3];
+    for (int i = 0; i < 3; i++) {
+      array[i] = random(1, 4); // random(1,4) generates 1,2,3
+      delay(10); // Small delay to ensure different random values
+    }
+    setCorrectCode(array, 3);
+
+    Serial.print("Custom code set to: ");
+    for (int i = 0; i < 3; i++) {
+      Serial.print(array[i]);
+      Serial.print(" ");
+    }
+  }
+
+
+  // This is an example of how to set the pins for the buttons, LEDs, servo and buzzer.
 } */
 
 
+
+// This setup method is an example of how to start the door lock system with a custom code and set the pins for the buttons, LEDs, servo and buzzer.
 /* void setup() {
-  start();
+
+  int array[4] = {3, 3, 3, 3}; 
+  
+  start(array, 4);
   
   // This is an example of how to set a custom code.
-  int array[4] = {3, 3, 3, 3}; 
   setCorrectCode(array, 4); 
 
   // This is an example of how to set the pins for the buttons, LEDs, servo and buzzer.
-  setPins(2, 3, 4, 6, 9, 8, 11, 13); // Set the pins for buttons, LEDs, servo and buzzer
+  setPins(2, 3, 4, 5, 9, 8, 11, 13); // Set the pins for buttons, LEDs, servo and buzzer
 } */
 
 // This is an example of an extra thing the youth might want to do, this lets them grab the servo object and use it.
