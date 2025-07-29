@@ -124,7 +124,7 @@ public: // Changed constructors to PUBLIC access
 // --- Public-Facing Namespace for Campers ---
 // This namespace provides the simple, direct function calls for campers.
 // They will use these functions like `DoorLock::unlock()` or `DoorLock::button1Pressed()`.
-namespace DoorLock {
+namespace DoorLockSystem {
 	// This variable stores the current locked state of the door.
 	extern bool locked;
 
