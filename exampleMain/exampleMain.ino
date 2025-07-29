@@ -1,6 +1,6 @@
 #include <Servo.h>
 #include "src/DoorLock.h"
-using namespace DoorLock;
+using namespace DoorLockSystem;
 // Dont touch anything above this comment, or the program will not work
 
 
@@ -20,7 +20,7 @@ using namespace DoorLock;
  
  // This way to start the door lock system is an example of how to set a custom code using the door lock buttons itself
  
- /* void setup() {
+ void setup() {
   start();
   setPins(2, 3, 4, 5, 9, 8, 11, 13); // Set the pins for buttons, LEDs, servo and buzzer
 
@@ -72,10 +72,7 @@ using namespace DoorLock;
       Serial.print(" ");
     }
   }
-
-
-  // This is an example of how to set the pins for the buttons, LEDs, servo and buzzer.
-} */
+}
 
 
 
@@ -84,7 +81,7 @@ using namespace DoorLock;
 
   int array[4] = {3, 3, 3, 3}; 
   
-  start(array, 4);
+  start();
   
   // This is an example of how to set a custom code.
   setCorrectCode(array, 4); 
@@ -103,9 +100,9 @@ void setup() {
   servo.write(0); // Initialize the servo to the closed position
 } */
 
-void setup() {
+/* void setup() {
   start();
-}
+} */
 
 void unlock() {
   locked = false;

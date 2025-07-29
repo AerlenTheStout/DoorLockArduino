@@ -344,7 +344,7 @@ void _DoorLockImpl::scanButtons()
 // These functions are what campers will call directly from their sketch.
 // Each function simply forwards the call to the single '_theDoorLockInstance'.
 
-namespace DoorLock {
+namespace DoorLockSystem {
     bool locked = _theDoorLockInstance.locked;
     
 /**
